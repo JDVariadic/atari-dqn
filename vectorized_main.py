@@ -17,13 +17,16 @@ import copy
 
 import matplotlib.pyplot as plt
 
+#Todo: Try moving replay to CPU and just do processing (unclear as we need to select action first)
+#VECTORIZE TRAINING LOOP
+
 EPSILON = 0.005
-CAPACITY = 100000
-NUM_OF_SAMPLES = 16
+CAPACITY = 1000000
+NUM_OF_SAMPLES = 32
 DISCOUNT_FACTOR = 0.99
 INITIAL_EPSILON = 1
 FINAL_EPSILON = 0.1
-EPSILON_DECAY = 0.0003
+EPSILON_DECAY = 0.00003
 LEARNING_RATE = 0.000025
 NUM_OF_STEPS_TO_UPDATE = 10000
 NUMBER_OF_FRAMES_PER_ACTION = 4
@@ -36,8 +39,8 @@ collected_data = 0
 current_epsilon = INITIAL_EPSILON
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 #device = torch.device("cpu")
-env = gym.make("ALE/SpaceInvaders-v5", render_mode="human")
-#env = gym.make("ALE/SpaceInvaders-v5")
+#env = gym.make("ALE/SpaceInvaders-v5", render_mode="human")
+env = gym.make("ALE/SpaceInvaders-v5")
 
 observation, info = env.reset()
 
@@ -108,25 +111,24 @@ for ep in range(1, max_episodes+1):
             batch_total = torch.empty(NUM_OF_SAMPLES, dtype=torch.float16, device=torch.device(device))
             minibatch = random.sample(replay_memory, NUM_OF_SAMPLES)
 
+        #Start of Computations
+        batch_previous_frame = minibatch[0][0]
+        batch_action = minibatch[0][1]
+        batch_reward = minibatch[0][2]
+        batch_frame_stack = minibatch[0][3]
+        batch_terminated = minibatch[0][4]
+        batch_truncated = minibatch[0][5]
+        
+        # Current Q-value for the action taken
+        current_q = action_value_function(batch_previous_frame)[batch_action]
+        batch_total = current_q
 
-        #SAMPLE DATA and compute targets
-        for idx, transition in enumerate(minibatch):
-            sampled_previous_frame, sampled_action, sampled_reward, sampled_frame_stack, sampled_terminated, sampled_truncated = transition
-            
-            prev_frame_tensor = sampled_previous_frame
-            next_frame_tensor = sampled_frame_stack
-
-            # Current Q-value for the action taken
-            current_q = action_value_function(prev_frame_tensor)[sampled_action]
-            batch_total[idx] = current_q
-
-            # Target Q-value calculation
-            if sampled_terminated or sampled_truncated:
-                batch_target[idx] = sampled_reward
-            else:
-                next_q_max = torch.max(target_action_value_function(next_frame_tensor))
-                batch_target[idx] = sampled_reward + DISCOUNT_FACTOR * next_q_max
-
+        not_done_mask = ~ (batch_terminated | batch_truncated)
+        # Target Q-value calculation
+        
+        next_q_max = torch.max(target_action_value_function(batch_frame_stack))
+        batch_target = batch_reward + DISCOUNT_FACTOR * next_q_max * not_done_mask
+        #End of computations
         loss = loss_fn(batch_total, batch_target)
 
         #optimizer.zero_grad()

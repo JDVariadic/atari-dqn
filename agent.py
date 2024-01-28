@@ -40,18 +40,22 @@ class DQNAgent:
         self.target_action_value_function = copy.deepcopy(self.action_value_function)
 
     def training_step(self, minibatch):
-        batch_states = minibatch[0][0] #[el[0][0] for el in minibatch]
-        batch_actions = minibatch[0][1]#[el[1] for el in minibatch]
-        batch_rewards = minibatch[0][2]#[el[2] for el in minibatch]
-        batch_next_states= minibatch[0][3]#[el[3] for el in minibatch]
-        batch_terminated = minibatch[0][4]#[el[4] for el in minibatch]
-        batch_truncated = minibatch[0][5]#[el[5] for el in minibatch]
-        print(len(batch_states))
-        current_q = self.action_value_function(batch_states)[batch_actions]
+        batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminated, batch_truncated = zip(*minibatch)
+        batch_states = torch.stack(batch_states)
+        batch_actions = torch.tensor(batch_actions, dtype=torch.long)
+        batch_rewards = torch.tensor(batch_rewards)
+        batch_next_states= torch.stack(batch_next_states)
+        batch_terminated = torch.tensor(batch_terminated)
+        batch_truncated = torch.tensor(batch_truncated)
+        q_values = self.action_value_function(batch_states)
+        #current_q = self.action_value_function(batch_states)[batch_actions]
+        batch_actions = batch_actions.unsqueeze(1)
+        current_q = q_values.gather(1, batch_actions).squeeze(1)
         batch_total = current_q
 
         not_done_mask = ~ (batch_terminated | batch_truncated)
-        next_q_max = torch.max(self.target_action_value_function(batch_next_states))
+        next_q_values = self.target_action_value_function(batch_next_states).detach()
+        next_q_max, _ = torch.max(next_q_values, dim=1)
         batch_target = batch_rewards + self.discount_factor * next_q_max * not_done_mask
         loss = self.loss_fn(batch_total, batch_target)
 

@@ -35,20 +35,20 @@ for ep in range(1, number_of_episodes+1):
 
     while not terminated and not truncated:
         previous_state = current_state
-        #Select Action (TODO)
+
         """
         Run select_action on agent to decide on following:
         1. Use random action
         2. Use Deep-Q-Model Estimate
         """
-        #action = env.action_space.sample()  # this is where you would insert your policy
+
         action = deep_q_agent.select_action(env.action_space.n, current_state.unsqueeze(0))
-        #Observe Environment (TODO)
+
         observation, reward, terminated, truncated, info = env.step(action)
         episode_score += reward
         reward = max(-1, min(reward, 1))
 
-        #Process Data (TODO)
+
         """
         Downsample frame to specified dimensions and convert frames to pytorch tensors
         """
@@ -57,21 +57,21 @@ for ep in range(1, number_of_episodes+1):
         downsized_observation_tensor = torch.tensor(downsized_observation, dtype=torch.float32, device=device)
 
         current_state = update_frame_stack(current_state, downsized_observation_tensor)
-        #Store Data (TODO)
+
         """
         Store data in instantiated Replay Memory
         """
 
         replay_buffer.insert_data(previous_state, action, reward, current_state, terminated, truncated)
         replay_buffer.update_replay_buffer()
-        #SAMPLE DATA (TODO)
+ 
         """
         Sample n amount of data from Replay Memory
         """
 
         batch_data = replay_buffer.sample_data(32)
 
-        #TRAIN DATA (TODO)
+
         if replay_buffer.get_length() >= TRAINING_THRESHOLD:
             deep_q_agent.training_step(batch_data)
             del batch_data

@@ -38,8 +38,8 @@ class DQNAgent:
     def update_action_value_function(self, new_action_value_function):
         self.action_value_function = new_action_value_function
 
-    def update_target_action_Value_function(self):
-        self.target_action_value_function = copy.deepcopy(self.action_value_function)
+    def update_target_action_value_function(self):
+        self.target_action_value_function = copy.deepcopy(self.action_value_function).to(self.device)
 
     def training_step(self, minibatch):
         batch_states, batch_actions, batch_rewards, batch_next_states, batch_terminated, batch_truncated = zip(*minibatch)
@@ -65,7 +65,7 @@ class DQNAgent:
         loss.backward()
         self.optimizer.step()
 
-        if self.training_step_counter >= 1000:
+        if self.training_step_counter >= 10000:
             self.target_action_value_function = copy.deepcopy(self.action_value_function).to(self.device)
             self.training_step_counter = 0
         self.training_step_counter += 1
